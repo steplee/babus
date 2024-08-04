@@ -151,19 +151,33 @@ namespace babus {
 
     template <bool Write> struct RwMutexLockGuard {
         inline RwMutexLockGuard(RwMutex& m)
-            : mtx_(m) {
+            : mtx_(&m) {
+			if (mtx_) {
             if constexpr (Write)
-                mtx_.w_lock();
+                mtx_->w_lock();
             else
-                mtx_.r_lock();
+                mtx_->r_lock();
+			}
         }
         inline ~RwMutexLockGuard() {
-            if constexpr (Write)
-                mtx_.w_unlock();
-            else
-                mtx_.r_unlock();
+			if (mtx_) {
+				if constexpr (Write)
+					mtx_->w_unlock();
+				else
+					mtx_->r_unlock();
+			}
         }
-        RwMutex& mtx_;
+
+		// This should not be needed except to make the FFI code cleaner.
+		inline RwMutex* forgetUnsafe() {
+			// SPDLOG_DEBUG("forgetUnsafe() called -- are you sure you want this?");
+			RwMutex* out = mtx_;
+			mtx_ = nullptr;
+			return out;
+		}
+
+		private:
+        RwMutex* mtx_ = nullptr;
     };
 
     using RwMutexWriteLockGuard = RwMutexLockGuard<true>;

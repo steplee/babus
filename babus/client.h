@@ -63,14 +63,19 @@ namespace babus {
 
         // This is a mutex just for the `slots_` map below -- it's not
         // shared between different processes.
-        std::mutex processPrivateMtx;
+        std::mutex processPrivateMtx_;
         SmallMap<const char*, ClientSlot> slots_;
 
         inline ClientDomain(Mmap&& mmap)
             : mmap_(std::move(mmap)) {
         }
 
-        // RwMutexReadLock readLockSlotMap();
+		inline ClientDomain(ClientDomain&& o)
+			: mmap_(std::move(o.mmap_))
+			  , slots_(std::move(o.slots_))
+			  // , processPrivateMtx(std::move(o.processPrivateMtx))
+		{
+		}
 
     public:
         static ClientDomain openOrCreate(const std::string& path, std::size_t size = DomainFileSize, void* targetAddr = 0);

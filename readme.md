@@ -42,3 +42,14 @@ The `futex` system call can be used with atomic integers to implement a mutex. I
 
 ##### Event Signalling
 Similarly `futex` can be used for event signalling. A 32-bit sequence counter counts up and threads can wait for it to increment using futex wait. The incrementor threads must call futex wake.
+
+## TODOs and Some Thoughts
+ - Support double- and up-to 8-buffering and for the client to be able to look back in the ring buffer.
+  - I believe I can keep the code simple and NOT have to deal with dynamic offsets from the mmap pointer.
+  - By specifying a max data size limit, we can simply get `data_item_ptr[i] = data_item_ptr[0] + max_size`.
+   - This relies on the data being aligned to OS pages (4096 bytes usually). Then because pages allow sparse access without actually taking up ram, I believe this means we waste no RAM (only virtual addresses -- who cares?).
+ - C ffi bindings and a Rust and Python integration.
+ - Tool/library to vizualize live messaging.
+
+## :fire:
+ - How to handle corrupt data? Imagine std::terminate being called when a mutex is held. That jacks up everything and would require a full reset of the domain + all slots.

@@ -6,7 +6,7 @@ int main() {
 
     spdlog::set_level(spdlog::level::trace);
 
-    ClientDomain d = ClientDomain::openOrCreate(std::string { Prefix } + "dom2");
+    ClientDomain d = ClientDomain::openOrCreate("dom2");
 
     ClientSlot& s { d.getSlot("mySlot") };
 

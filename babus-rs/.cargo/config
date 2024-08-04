@@ -1,0 +1,5 @@
+
+# NOTE: Link to the LOCALLY build 'babus_ffi' lib.
+
+[build]
+rustflags = ["-C", "link-args=-L../build"]

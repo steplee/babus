@@ -47,9 +47,20 @@ namespace babus {
         RwMutex mtx;
         uint32_t index = 0; // Used for event futex mask.
         SequenceCounter seq;
-        uint32_t length = 0; // current data length
+
+		// Using a ring-buffer is more complicated than I realized because it requires
+		// dynamic offsets from the mmap ptr. The offsets should remain aligned to 4096, but
+		// must be dynamic length because data is variable length.
+		// OR specify max data size and SIMPLY treat as static size. BECAUSE we align to page size (4096)
+		// I BELIEVE this does not waste ANY ram actually !?!?
+		// It should be built in sparse acccess for free, wasting only virtual address space (who cares).
+		//
+		// uint32_t ringSize = 1; // single-buffered, double-buffered, up to N-buffered
+		// std::array<uint32_t, SlotMaxRingLength> length = {0}; // current data length
+		uint32_t length = 0; // current data length
+
         SlotFlags flags;
-        char name[32] = { 0 };
+        char name[MaxNameLength] = { 0 };
 
         inline uint8_t* data_ptr() {
             return reinterpret_cast<uint8_t*>(this) + SlotDataOffset;
@@ -67,6 +78,7 @@ namespace babus {
             return LockedView {
                 ByteSpan { data_ptr(), length },
                 getReadLock(),
+				this
             };
         }
 
@@ -82,7 +94,7 @@ namespace babus {
         RwMutex slotMtx; // actually I don't think I need this.
         SequenceCounter seq;
         std::size_t slotFileSizes;
-        char name[32] = { 0 };
+        char name[MaxNameLength] = { 0 };
         Slot slots[64];
     };
 
@@ -94,7 +106,7 @@ namespace babus {
             length = span.len;
             seq.incrementNoFutexWake();
         }
-        SPDLOG_TRACE("slot::write() given dom 0x{:0x}", (std::size_t)dom);
+        SPDLOG_TRACE("slot::write() wrote n={} to 0x{:0x}", span.len, (std::size_t)data_ptr());
         dom->seq.increment(1u << index);
     }
 

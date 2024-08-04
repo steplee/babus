@@ -1,5 +1,6 @@
 project('babus-cpp', ['c', 'cpp'],
     default_options : [
+      'default_library=static',
       'cpp_std=c++17',
       'buildtype=debugoptimized',
       'optimization=2',
@@ -52,6 +53,16 @@ babus_dep = declare_dependency(
   dependencies: [base_dep],
   link_with: [babus]
   )
+
+
+# FFI Library for rust bindings
+babus_ffi = library(
+  'babus_ffi',
+  files('babus/ffi.cc'),
+  dependencies: [babus_dep],
+  install: true)
+
+
 
 # Main runner for current testing.
 executable(

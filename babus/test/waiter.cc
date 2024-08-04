@@ -68,7 +68,7 @@ TEST(Waiter, WaiterWorksAcrossTwoProcesses_SameTargetAddress) {
 
 		spdlog::set_level(spdlog::level::trace);
 
-		ClientDomain domain = ClientDomain::openOrCreate(std::string{Prefix} + "dom2", DomainFileSize, (void*)0x714110dfc000);
+		ClientDomain domain = ClientDomain::openOrCreate("dom2", DomainFileSize, (void*)0x714110dfc000);
 		SPDLOG_INFO("child  domain    @ 0x{:0x}", (std::size_t)domain.ptr());
 		SPDLOG_INFO("child  globalSeq @ 0x{:0x}", (std::size_t)&domain.ptr()->seq);
 		ClientSlot& slot { domain.getSlot("mySlot") };
@@ -90,7 +90,7 @@ TEST(Waiter, WaiterWorksAcrossTwoProcesses_SameTargetAddress) {
 	} else {
 		// Parent.
 
-		ClientDomain domain = ClientDomain::openOrCreate(std::string{Prefix} + "dom2", DomainFileSize, (void*)0x714110dfc000);
+		ClientDomain domain = ClientDomain::openOrCreate("dom2", DomainFileSize, (void*)0x714110dfc000);
 		SPDLOG_INFO("parent domain    @ 0x{:0x}", (std::size_t)domain.ptr());
 		SPDLOG_INFO("parent globalSeq @ 0x{:0x}", (std::size_t)&domain.ptr()->seq);
 		ClientSlot& slot { domain.getSlot("mySlot") };
@@ -121,7 +121,7 @@ TEST(Waiter, WaiterWorksAcrossTwoProcesses_NoConsensusTargetAddress) {
 
 		spdlog::set_level(spdlog::level::trace);
 
-		ClientDomain domain = ClientDomain::openOrCreate(std::string{Prefix} + "dom2", DomainFileSize);
+		ClientDomain domain = ClientDomain::openOrCreate("dom2", DomainFileSize);
 		SPDLOG_INFO("child  domain    @ 0x{:0x}", (std::size_t)domain.ptr());
 		SPDLOG_INFO("child  globalSeq @ 0x{:0x}", (std::size_t)&domain.ptr()->seq);
 		ClientSlot& slot { domain.getSlot("mySlot") };
@@ -143,7 +143,7 @@ TEST(Waiter, WaiterWorksAcrossTwoProcesses_NoConsensusTargetAddress) {
 	} else {
 		// Parent.
 
-		ClientDomain domain = ClientDomain::openOrCreate(std::string{Prefix} + "dom2", DomainFileSize);
+		ClientDomain domain = ClientDomain::openOrCreate("dom2", DomainFileSize);
 		SPDLOG_INFO("parent domain    @ 0x{:0x}", (std::size_t)domain.ptr());
 		SPDLOG_INFO("parent globalSeq @ 0x{:0x}", (std::size_t)&domain.ptr()->seq);
 		ClientSlot& slot { domain.getSlot("mySlot") };

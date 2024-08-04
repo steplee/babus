@@ -53,9 +53,9 @@ namespace babus {
     }
 
 
-    ClientDomain ClientDomain::openOrCreate(const std::string& path, std::size_t size, void* targetAddr) {
+    ClientDomain ClientDomain::openOrCreate(const std::string& name, std::size_t size, void* targetAddr) {
         auto builder = MmapBuilder {};
-        Mmap mmap    = builder.path(path).allowCreate().size(size).targetAddr(targetAddr).build();
+        Mmap mmap    = builder.path(std::string{ Prefix } + name).allowCreate().size(size).targetAddr(targetAddr).build();
 
         assert(reinterpret_cast<std::size_t>(mmap.ptr()) % 8 == 0);
         auto ptr = reinterpret_cast<Domain*>(mmap.ptr());
@@ -75,7 +75,7 @@ namespace babus {
     }
 
     ClientSlot& ClientDomain::getSlot(const char* s) {
-        std::lock_guard<std::mutex> lck(processPrivateMtx);
+        std::lock_guard<std::mutex> lck(processPrivateMtx_);
 
         auto it = slots_.find(s);
 
@@ -112,7 +112,7 @@ namespace fmt {
         fmt::format_to(ctx.out(), "Domain {{\n");
 
         // FIXME: Not hygenic.
-        std::lock_guard<std::mutex> lck(const_cast<ClientDomain&>(a).processPrivateMtx);
+        std::lock_guard<std::mutex> lck(const_cast<ClientDomain&>(a).processPrivateMtx_);
         for (auto& kv : a.slots_) { fmt::format_to(ctx.out(), "{}\n", *kv.second.ptr()); }
         return fmt::format_to(ctx.out(), "}}");
     }
