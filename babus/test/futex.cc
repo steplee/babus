@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "babus/futex.hpp"
-#include "babus/rw_mutex.hpp"
-#include "babus/sequence_counter.hpp"
+#include "babus/detail/futex.hpp"
+#include "babus/detail/rw_mutex.hpp"
+#include "babus/detail/sequence_counter.hpp"
 
 #include <thread>
 

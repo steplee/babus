@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "babus/waiter.h"
+#include "babus/client.h"
 
 #include <thread>
 #include <unistd.h>

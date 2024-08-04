@@ -39,8 +39,9 @@ base_dep = declare_dependency(
 babus = library(
   'babus',
   files(
-    'babus/mmap.cc',
+    'babus/fs/mmap.cc',
     'babus/domain.cc',
+    'babus/client.cc',
     'babus/waiter.cc',
     ),
   dependencies: [base_dep],
