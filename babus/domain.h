@@ -33,6 +33,13 @@ namespace babus {
         ByteSpan span;
         RwMutexReadLockGuard lck;
         Slot* slot = nullptr;
+
+		inline std::vector<uint8_t> cloneBytes() const {
+			std::vector<uint8_t> out;
+			out.resize(span.len);
+			memcpy(out.data(), span.ptr, span.len);
+			return out;
+		}
     };
 
     struct SlotFlags {

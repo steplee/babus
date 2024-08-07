@@ -79,16 +79,16 @@ namespace babus {
 
         auto it = slots_.find(s);
 
-        if (it != slots_.end()) { return it->second; }
+        if (it != slots_.end()) { return *it->second; }
 
         throwIfNotValidFileName(s);
 
-        ClientSlot newSlot = ClientSlot::openOrCreate(ptr(), s);
+        auto newSlot = std::unique_ptr<ClientSlot>(new ClientSlot(ClientSlot::openOrCreate(ptr(), s)));
         slots_.insert(s, std::move(newSlot));
 
         it = slots_.find(s);
         if (it != slots_.end()) {
-            return it->second;
+            return *it->second;
         } else {
             SPDLOG_ERROR("just created+inserted slot '{}' but its missing?", s);
             throw std::runtime_error("just created+inserted slot but its missing?");
@@ -113,7 +113,7 @@ namespace fmt {
 
         // FIXME: Not hygenic.
         std::lock_guard<std::mutex> lck(const_cast<ClientDomain&>(a).processPrivateMtx_);
-        for (auto& kv : a.slots_) { fmt::format_to(ctx.out(), "{}\n", *kv.second.ptr()); }
+        for (auto& kv : a.slots_) { fmt::format_to(ctx.out(), "{}\n", *kv.second->ptr()); }
         return fmt::format_to(ctx.out(), "}}");
     }
 }

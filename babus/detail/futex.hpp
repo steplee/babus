@@ -9,9 +9,9 @@
 namespace babus {
 
     struct FutexView {
-        uint32_t* uaddr;
+        volatile uint32_t* uaddr;
 
-        inline FutexView(uint32_t* p)
+        inline FutexView(volatile uint32_t* p)
             : uaddr(p) {
         }
 

@@ -28,8 +28,8 @@ namespace babus {
             value.store(0);
         }
 
-        inline uint32_t* asPtr() {
-            return reinterpret_cast<uint32_t*>(&value);
+        inline volatile uint32_t* asPtr() {
+            return reinterpret_cast<volatile uint32_t*>(&value);
         }
 
         inline uint32_t load() const {
@@ -59,7 +59,7 @@ namespace babus {
             uint32_t cur = load();
 
             if (cur != prv) {
-                SPDLOG_DEBUG("waitForChange prv != cur ({} vs {}). No futex wait needed.", cur, prv);
+                SPDLOG_TRACE("waitForChange prv != cur ({} vs {}). No futex wait needed.", cur, prv);
                 return cur;
             }
 
@@ -69,12 +69,12 @@ namespace babus {
 
             if (stat < 0) {
                 if (errno == EAGAIN) {
-                    SPDLOG_DEBUG("futex.waitBitset returned EAGAIN. This is not an error.");
+                    SPDLOG_TRACE("futex.waitBitset returned EAGAIN. This is not an error.");
                 } else {
                     SPDLOG_ERROR("futex.waitBitset errno {} ('{}')", errno, strerror(errno));
                 }
             } else {
-                SPDLOG_DEBUG("futex.waitBitset returned w/o error.");
+                SPDLOG_TRACE("futex.waitBitset returned w/o error.");
             }
 
             return cur;

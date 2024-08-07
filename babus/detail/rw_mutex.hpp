@@ -30,7 +30,7 @@ namespace babus {
             value.store(Unlocked, seq_cst);
         }
 
-        inline uint32_t* asPtr() {
+        inline volatile uint32_t* asPtr() {
             return reinterpret_cast<uint32_t*>(&value);
         }
 
@@ -57,6 +57,7 @@ namespace babus {
                     SPDLOG_TRACE("lock is reader-held, cmpexh/happy path not even tried. Entering futex wait.");
                 }
 
+				/*
                 assert(old < Unlocked);
 
                 FutexView ftx { asPtr() };
@@ -71,6 +72,30 @@ namespace babus {
                 } else {
                     SPDLOG_TRACE("futex.wait() success. Loop back.");
                 }
+				*/
+
+				// NOTE: Just like in r_lock(), the above assertion `old < Unlocked` seems to be wrong
+				//       when there are multiple writers.
+				//       So move it into an if statement instead.
+				// WARNING: But does this create an ABA problem?
+				// WARNING: Or is the if check logic correct -- does this spin?
+				// FIXME: I'm thinking the logic is wrong and this spins when we want to sleep.
+
+				if (old < Unlocked) {
+					FutexView ftx { asPtr() };
+					auto ftxStat = ftx.wait(old);
+					if (ftxStat < 0) {
+						if (errno == EAGAIN) {
+							SPDLOG_TRACE("futex got EAGAIN. loop back.");
+						} else {
+							SPDLOG_ERROR("futex got errno {} ('{}').", errno, strerror(errno));
+							throw std::runtime_error("futex error.");
+						}
+					} else {
+						SPDLOG_TRACE("futex.wait() success. Loop back.");
+					}
+				}
+
             }
         }
 
@@ -81,8 +106,7 @@ namespace babus {
                 if (old != Locked) {
                     uint32_t nxt = old + 1;
                     if (value.compare_exchange_strong(old, nxt, seq_cst, seq_cst)) {
-                        // The op successfully completed. We've set `nxt`, meaning WE now hold the lock.
-                        // This is the only place we can break from the loop.
+                        // The op successfully completed. We've set `nxt`, meaning WE now hold the (shared) lock.
                         SPDLOG_TRACE("cmpexh completed happy path ({} == {}). Returning without futex wait.", old_, old);
                         return;
                     } else {
@@ -93,6 +117,7 @@ namespace babus {
                     SPDLOG_TRACE("lock is writer-held, cmpexh/happy path not even tried. Entering futex wait.");
                 }
 
+				/*
                 assert(old < Unlocked);
 
                 FutexView ftx { asPtr() };
@@ -107,6 +132,28 @@ namespace babus {
                 } else {
                     SPDLOG_TRACE("futex.wait() success. Loop back.");
                 }
+				*/
+
+				//
+				// NOTE: This (old < Unlocked) is NOT a requirement?
+				//       As above I used to assert such, but it fails when multiple readers.
+				//       Think hard about this -- is this logic correct?
+				//
+				if (old < Unlocked) {
+					FutexView ftx { asPtr() };
+					auto ftxStat = ftx.wait(old);
+					if (ftxStat < 0) {
+						if (errno == EAGAIN) {
+							SPDLOG_TRACE("futex got EAGAIN. loop back.");
+						} else {
+							SPDLOG_ERROR("futex got errno {} ('{}').", errno, strerror(errno));
+							throw std::runtime_error("futex error.");
+						}
+					} else {
+						SPDLOG_TRACE("futex.wait() success. Loop back.");
+					}
+				}
+
             }
         }
 

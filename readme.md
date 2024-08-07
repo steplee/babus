@@ -53,3 +53,7 @@ Similarly `futex` can be used for event signalling. A 32-bit sequence counter co
 
 ## :fire:
  - How to handle corrupt data? Imagine std::terminate being called when a mutex is held. That jacks up everything and would require a full reset of the domain + all slots.
+ - In `rw_mutex.hpp` (`r_lock` and `w_lock`), see the comments about the assertions I had to disable. While they fix the breaking issues, do they also create an issue where the loop spins without sleeping properly?
+
+ ## ABA Problems
+ Are a PITA.

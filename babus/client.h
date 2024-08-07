@@ -64,7 +64,9 @@ namespace babus {
         // This is a mutex just for the `slots_` map below -- it's not
         // shared between different processes.
         std::mutex processPrivateMtx_;
-        SmallMap<const char*, ClientSlot> slots_;
+
+		// Must use a unique_ptr here so that `getSlot` references remain valid after re-hashing etc.
+        SmallMap<const char*, std::unique_ptr<ClientSlot>> slots_;
 
         inline ClientDomain(Mmap&& mmap)
             : mmap_(std::move(mmap)) {

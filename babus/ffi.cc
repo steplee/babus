@@ -1,4 +1,5 @@
 #include "client.h"
+#include "waiter.h"
 
 using namespace babus;
 
@@ -10,6 +11,7 @@ struct C_LockedView {
     RwMutex* mtx;
     Slot* slot;
 };
+static_assert(sizeof(C_LockedView) == 4*8);
 
 // -----------------------------------------------------
 // ClientDomain
@@ -57,7 +59,7 @@ C_LockedView babus_client_slot_read_locked_view(ClientSlot* cs) {
 // -----------------------------------------------------
 
 void babus_unlock_view(C_LockedView* clv) {
-	SPDLOG_INFO("unlock C_LockedView 0x{:0x}", (size_t)clv);
+	SPDLOG_TRACE("unlock C_LockedView 0x{:0x}", (size_t)clv);
     assert(clv != nullptr);
 
     assert(clv->mtx != nullptr);
@@ -70,6 +72,41 @@ void* babus_locked_view_data(C_LockedView* clv) {
 }
 size_t babus_locked_view_length(C_LockedView* clv) {
 	return clv->len;
+}
+
+// -----------------------------------------------------
+// Waiter
+// -----------------------------------------------------
+
+Waiter* babus_waiter_alloc(ClientDomain* cd) {
+	return new Waiter(cd->ptr());
+}
+void babus_waiter_free(Waiter* w) {
+	free(w);
+}
+
+void babus_waiter_subscribe_to(Waiter* waiter, ClientSlot* cs, bool wakeWith) {
+	waiter->subscribeTo(cs->ptr(), wakeWith);
+}
+void babus_waiter_unsubscribe_from(Waiter* waiter, ClientSlot* cs) {
+	waiter->unsubscribeFrom(cs->ptr());
+}
+void babus_waiter_wait_exclusive(Waiter* waiter) {
+	waiter->waitExclusive();
+}
+
+// The user must pass a function pointer that takes C_LockedView and an arbirtray pointer that they may or may not make use of.
+using ForEachNewSlotCallback = void (*)(C_LockedView, void*);
+
+uint32_t babus_waiter_for_each_new_slot(Waiter* waiter, void* userData, ForEachNewSlotCallback callback) {
+	return waiter->forEachNewSlot([=](LockedView&& lv) {
+			C_LockedView clv;
+			clv.ptr  = lv.span.ptr;
+			clv.len  = lv.span.len;
+			clv.mtx  = lv.lck.forgetUnsafe();
+			clv.slot = lv.slot;
+			callback(clv, userData);
+	});
 }
 
 

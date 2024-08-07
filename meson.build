@@ -15,12 +15,14 @@ fmt_dep = dependency('fmt', required: true, fallback: 'fmt',
 )
 '''
 
-add_project_arguments('-DSPDLOG_ACTIVE_LEVEL=trace', language: 'cpp')
+# add_global_arguments('-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE', language: 'cpp')
+add_global_arguments('-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG', language: 'cpp')
 
 spdlog = subproject('spdlog',
   required: true,
   # default_options: ['external_fmt=enabled', 'compile_library=true', 'tests=false', 'default_library=static']
   default_options: ['compile_library=true', 'tests=false', 'default_library=static']
+  # default_options: ['compile_library=false', 'tests=false', 'default_library=static']
 )
 spdlog_dep = spdlog.get_variable('spdlog_dep')
 
@@ -87,4 +89,9 @@ endif
 if get_option('benchmarks').enabled()
   gbenchmark_dep = dependency('benchmark', required: true)
   # benchmark_dep = gbenchmark.dependency('benchmark')
+
+  executable('runProfileApp',
+    files('babus/benchmark/profileApp.cc'),
+    dependencies: [babus_dep],
+    install: false)
 endif
