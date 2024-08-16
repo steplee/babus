@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "babus/benchmark/profileCfg.hpp"
+
 //
 // There is a producer of a small message at 1000Hz.
 // There is a producer of a large message at 30Hz.
@@ -21,7 +23,7 @@
 //
 
 namespace {
-    constexpr std::size_t BytesInOneImage = 1920 * 1080 * 3;
+	ProfileConfig g_cfg;
 
     int64_t getMicros() {
         using namespace std::chrono;
@@ -206,8 +208,8 @@ namespace {
         inline App(bool noImuNorMed345) {
             SPDLOG_INFO("");
             SPDLOG_INFO("Running with `noImuNorMed345`={}", noImuNorMed345);
-            if (!noImuNorMed345) producers.push_back(std::make_unique<Producer>("imu =>", "imu", 1000, 128));
-            producers.push_back(std::make_unique<Producer>("image =>", "image", 30, BytesInOneImage));
+            if (!noImuNorMed345) producers.push_back(std::make_unique<Producer>("imu =>", "imu", g_cfg.imuRate, 128));
+            producers.push_back(std::make_unique<Producer>("image =>", "image", 30, g_cfg.imageSize));
 
             producers.push_back(std::make_unique<Producer>("med01 =>", "med01", 40, 356));
             producers.push_back(std::make_unique<Producer>("med02 =>", "med02", 41, 356));
@@ -234,9 +236,9 @@ namespace {
         }
 
         inline void run(int64_t duration) {
-            SPDLOG_INFO("sleeping for {:.1f} seconds", duration / 1e6);
+            SPDLOG_DEBUG("sleeping for {:.1f} seconds", duration / 1e6);
             usleep(duration);
-            SPDLOG_INFO("sleeping for {:.1f} seconds ... done", duration / 1e6);
+            SPDLOG_DEBUG("sleeping for {:.1f} seconds ... done", duration / 1e6);
             _doStop   = true;
 
             auto stop = allocMessage(8 + 4);
@@ -244,14 +246,12 @@ namespace {
             stop[9]   = (uint8_t)'t';
             stop[10]  = (uint8_t)'o';
             stop[11]  = (uint8_t)'p';
-            SPDLOG_INFO("writing stop message.");
+            SPDLOG_DEBUG("writing stop message.");
             _clientDomain->getSlot("control")->write(_clientDomain->ptr(), babus::ByteSpan { stop.data(), stop.size() });
         }
     };
 
 }
-
-static constexpr int64_t testDuration = 30'000'000;
 
 using namespace babus;
 
@@ -261,7 +261,7 @@ template <class... Args> void run_app(Args&&... args) {
 
     {
         App app(args...);
-        app.run(testDuration);
+        app.run(g_cfg.testDuration);
     }
 
     delete _clientDomain;
@@ -270,9 +270,12 @@ template <class... Args> void run_app(Args&&... args) {
 
 int main() {
 
-    spdlog::set_level(spdlog::level::trace);
+    // spdlog::set_level(spdlog::level::trace);
     // spdlog::set_level(spdlog::level::debug);
     // spdlog::set_level(spdlog::level::info);
+
+	g_cfg = getConfig();
+	assert(g_cfg.valid);
 
     run_app(false);
     // run_app(true);

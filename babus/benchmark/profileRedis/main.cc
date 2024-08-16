@@ -6,13 +6,14 @@
 #include <cassert>
 #include <unistd.h>
 
+#include "babus/benchmark/profileCfg.hpp"
+
 using namespace sw::redis;
 
 
 
 namespace {
-    constexpr std::size_t BytesInOneImage = 1920 * 1080 * 3;
-    // constexpr std::size_t BytesInOneImage = 1920 * 2;
+	ProfileConfig g_cfg;
 
     volatile bool _doStop              = false;
 
@@ -68,12 +69,16 @@ namespace {
 	}
 
 	Redis getRedis() {
-		// return Redis("tcp://127.0.0.1:6379");
-		return Redis("unix:///tmp/redis.sock");
+		if (g_cfg.redis.useTcp)
+			return Redis("tcp://127.0.0.1:6379");
+		else
+			return Redis("unix:///tmp/redis.sock");
 	}
 
 }
 
+
+namespace {
     struct Producer {
         std::string name;
         std::string slotName;
@@ -126,6 +131,8 @@ namespace {
 
         inline void loop() {
             int64_t sleepTime = 1'000'000 / frequency - 1;
+
+			redis.xtrim(slotName, 0);
 
             while (!_doStop) {
                 usleep(sleepTime);
@@ -227,7 +234,9 @@ namespace {
 						// SPDLOG_INFO("value: {}",*reinterpret_cast<const uint64_t*>(value.data()));
 
 						// sum.viewLatency += getElapsedFromMessageCreation((const uint8_t*)view.span.ptr);
-						sum.copyLatency += getElapsedFromMessageCreation((const uint8_t*)value.data());
+						auto elapsed = getElapsedFromMessageCreation((const uint8_t*)value.data());
+						// if (elapsed > 1e6) SPDLOG_INFO("warning, long delay: {}s (slot {}) (n {})", elapsed * 1e-6, key, sum.n);
+						sum.copyLatency += elapsed;
 						sum.n++;
 
 						// SPDLOG_INFO("set key '{}' id from '{}' to '{}' duration {}", key, lookupKeyRef(key).second, id, getElapsedFromMessageCreation((const uint8_t*)value.data()));
@@ -253,10 +262,9 @@ namespace {
         std::vector<std::unique_ptr<Consumer>> consumers;
 
         inline App(bool noImuNorMed345) {
-            SPDLOG_INFO("");
-            SPDLOG_INFO("Running with `noImuNorMed345`={}", noImuNorMed345);
-            if (!noImuNorMed345) producers.push_back(std::make_unique<Producer>("imu =>", "imu", 1000, 128));
-            producers.push_back(std::make_unique<Producer>("image =>", "image", 30, BytesInOneImage));
+            // SPDLOG_INFO("Running with `noImuNorMed345`={}", noImuNorMed345);
+            if (!noImuNorMed345) producers.push_back(std::make_unique<Producer>("imu =>", "imu", g_cfg.imuRate, 128));
+            producers.push_back(std::make_unique<Producer>("image =>", "image", 30, g_cfg.imageSize));
 
             producers.push_back(std::make_unique<Producer>("med01 =>", "med01", 40, 356));
             producers.push_back(std::make_unique<Producer>("med02 =>", "med02", 41, 356));
@@ -265,6 +273,8 @@ namespace {
                 producers.push_back(std::make_unique<Producer>("med04 =>", "med04", 43, 356));
                 producers.push_back(std::make_unique<Producer>("med05 =>", "med05", 44, 356));
             }
+
+            usleep(5);
 
             consumers.push_back(std::make_unique<Consumer>("=> imu", std::vector<std::string> {
                                                                          "control",
@@ -283,9 +293,9 @@ namespace {
         }
 
         inline void run(int64_t duration) {
-            SPDLOG_INFO("sleeping for {:.1f} seconds", duration / 1e6);
+            SPDLOG_DEBUG("sleeping for {:.1f} seconds", duration / 1e6);
             usleep(duration);
-            SPDLOG_INFO("sleeping for {:.1f} seconds ... done", duration / 1e6);
+            SPDLOG_DEBUG("sleeping for {:.1f} seconds ... done", duration / 1e6);
             _doStop   = true;
 
             auto stop = allocMessage(8 + 4);
@@ -293,100 +303,19 @@ namespace {
             stop[9]   = (uint8_t)'t';
             stop[10]  = (uint8_t)'o';
             stop[11]  = (uint8_t)'p';
-            SPDLOG_INFO("writing stop message.");
-            // _clientDomain->getSlot("control")->write(_clientDomain->ptr(), babus::ByteSpan { stop.data(), stop.size() });
         }
     };
 
+}
 
 int main() {
-	auto redis = Redis("tcp://127.0.0.1:6379");
-
-#if 0
-	redis.set("key", "val1");
-    auto val = redis.get("key");
-
-	fmt::print("val: {}\n", *val);
-
-	int64_t t0 = getMicros();
-	// int64_t t0 = 'a';
-	fmt::print("t0: {}\n", t0);
-	set(redis, "t", t0);
-	int64_t t1 = getCopy<int64_t>(redis, "t");
-	int64_t t2 = getMicros();
-	fmt::print("t1: {}\n", t1);
-	fmt::print("latency: {}us\n", t2-t1);
-
-	{
-		AppMessage<SmallData> am (SmallData{"hello"});
-		fmt::print("smalldata latency0: {}us\n", am.nowDt());
-		set(redis, "hello", am);
-		auto am2 = getCopy<decltype(am)>(redis, "hello");
-		fmt::print("smalldata latency1: {}us\n", am2.nowDt());
-	}
-
-	//
-	// I see about 100-200 micros for the memcpy, and about 3.2 ms for the redis set/get.
-	//
-
-	std::mutex mtx;
-	for (int i=0; i<10; i++)
-	{
-		AppMessage<LargeData> am (LargeData{});
-		memset((void*)am.inner.text, 0, sizeof(LargeData));
-		sched_yield();
-		usleep(1);
-		sched_yield();
-		mtx.lock();
-		AppMessage<LargeData> am2 (LargeData{});
-		for (int j=0; j<1; j++) {
-			memcpy(&am2, &am, sizeof(decltype(am)));
-			((volatile char*)am2.inner.text)[0] = 0;
-		}
-		mtx.unlock();
-		fmt::print("largedata lock+memcpy latency1: {}us\n", am2.nowDt());
-	}
-
-	for (int i=0; i<10; i++)
-	{
-		AppMessage<LargeData> am (LargeData{});
-		// fmt::print("largedata latency0: {}us\n", am.nowDt());
-		set(redis, "hello2", am);
-		int64_t t1 = getMicros();
-		auto am2 = getCopy<decltype(am)>(redis, "hello2");
-		fmt::print("largedata latency1: {}us, {}us readonly\n", am2.nowDt(), getMicros()-t1);
-	}
-
-
-	{
-		using Attrs = std::vector<std::pair<std::string, std::string>>;
-		Attrs attrs = { {"f1", "v1"}, {"f2", "v2"} };
-		auto id = redis.xadd("strm1", "*", attrs.begin(), attrs.end());
-		fmt::print(" - xadd id = {}\n", id);
-
-		using Item = std::pair<std::string, Optional<Attrs>>;
-		using ItemStream = std::vector<Item>;
-
-		// std::unordered_map<std::string, ItemStream> result;
-		std::vector<std::pair<std::string, ItemStream>> result;
-		redis.xread("strm1", "0", std::chrono::seconds(1), 1, std::inserter(result, result.end()));
-		fmt::print(" - result.size() = {}\n", result.size());
-		// Yikes.
-		fmt::print(" - dequed from strm1: (key={}) (nmsg={}) (id={}) (field0={} value0={})\n", result[0].first, result[0].second.size(), result[0].second[0].first,
-				result[0].second[0].second->operator[](0).first,
-				result[0].second[0].second->operator[](0).second);
-
-		// fmt::print(" - dequed from strm1: (key={}) (val={})\n", result[0].first);
-
-		//// std::unordered_map<std::string, std::string> keys = { {"strm1", id}, {"another-key", "0-0"} };
-		// std::vector<std::pair<std::string, std::string>> keys = { {"strm1", id}, {"another-key", "0-0"} };
-		// redis.xread(keys.begin(), keys.end(), 10, std::inserter(result, result.end()));
-	}
-#endif
-    spdlog::set_level(spdlog::level::trace);
+    // spdlog::set_level(spdlog::level::trace);
     // spdlog::set_level(spdlog::level::debug);
     // spdlog::set_level(spdlog::level::info);
 
+	g_cfg = getConfig();
+	assert(g_cfg.valid);
+	SPDLOG_INFO("redis using tcp: {}", g_cfg.redis.useTcp);
 
 	static constexpr int64_t testDuration = 30'000'000;
     App app(false);

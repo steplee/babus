@@ -90,12 +90,12 @@ if get_option('benchmarks').enabled()
   gbenchmark_dep = dependency('benchmark', required: true)
   # benchmark_dep = gbenchmark.dependency('benchmark')
 
-  executable('runProfileApp',
-    files('babus/benchmark/profileApp.cc'),
+  executable('runProfileBabus',
+    files('babus/benchmark/profileBabus.cc'),
     dependencies: [babus_dep],
     install: false)
 endif
 
 if get_option('profileRedis').enabled()
-  subdir('babus/app/redisProfile')
+  subdir('babus/benchmark/profileRedis')
 endif

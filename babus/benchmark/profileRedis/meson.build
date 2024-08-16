@@ -28,7 +28,7 @@ redispp_dep = declare_dependency(
 
 
 
-executable('profileRedis',
+executable('runProfileRedis',
   files('main.cc'),
   dependencies: [base_dep, redispp_dep, hiredis_dep]
   )
