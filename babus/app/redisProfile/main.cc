@@ -1,27 +1,20 @@
-#include "babus/client.h"
-#include "babus/domain.h"
-#include "babus/waiter.h"
+#include <spdlog/spdlog.h>
 
-#include <cassert>
+#include <sw/redis++/redis++.h>
+
 #include <chrono>
-#include <string>
-#include <vector>
+#include <cassert>
+#include <unistd.h>
 
-//
-// There is a producer of a small message at 1000Hz.
-// There is a producer of a large message at 30Hz.
-// There are 5 producers of small messages at 40Hz.
-//
-// There is one consumer to the small/frequent message.
-// There are five consumers to all messages other than the small one.
-//
-// Is the consumer to the small/frequent message ever delayed?
-// What's the average and max latencies across all reads and event signals?
-// What's the total time held for write locks? Does it make sense to double- or N- buffer?
-//
+using namespace sw::redis;
+
+
 
 namespace {
     constexpr std::size_t BytesInOneImage = 1920 * 1080 * 3;
+    // constexpr std::size_t BytesInOneImage = 1920 * 2;
+
+    volatile bool _doStop              = false;
 
     int64_t getMicros() {
         using namespace std::chrono;
@@ -40,13 +33,15 @@ namespace {
 
     using MessageBuffer = std::vector<uint8_t>;
 
-    inline MessageBuffer allocMessage(std::size_t len) {
+    inline std::string allocMessage(std::size_t len) {
         assert(len > sizeof(int64_t));
-        MessageBuffer out(len);
+		std::string out;
+		out.resize(len);
         for (std::size_t i = sizeof(int64_t); i < len; i++) out[i] = (i % 256);
         reinterpret_cast<int64_t*>(out.data())[0] = getMicros();
         return out;
     }
+
     inline int64_t getDuration(int64_t then) {
         return getMicros() - then;
     }
@@ -56,19 +51,35 @@ namespace {
         // SPDLOG_INFO("now {} then {} diff {}", now, then, now-then);
         return now - then;
     }
+
+
+
+	template <class T>
+	auto set(Redis& redis, const StringView& k, const T& t) -> bool {
+		return redis.set(k, StringView{reinterpret_cast<const char*>(&t), sizeof(T)});
+	}
+
+	template <class T>
+	T getCopy(Redis& redis, const StringView& k) {
+		auto v = redis.get(k);
+		assert(v.has_value());
+		assert(v->length() == sizeof(T));
+		return T(*reinterpret_cast<const T*>(v->data()));
+	}
+
+	Redis getRedis() {
+		// return Redis("tcp://127.0.0.1:6379");
+		return Redis("unix:///tmp/redis.sock");
+	}
+
 }
-
-namespace {
-
-    // Use a few globals because otherwise the code bloats up with irrelevant details.
-    volatile bool _doStop              = false;
-    babus::ClientDomain* _clientDomain = 0;
 
     struct Producer {
         std::string name;
         std::string slotName;
         int frequency;
         std::size_t msgSize;
+		Redis redis;
         std::thread thread;
 
         struct {
@@ -81,7 +92,9 @@ namespace {
             , slotName(slotName)
             , frequency(frequency)
             , msgSize(msgSize)
-            , thread(&Producer::loop, this) {
+			, redis(getRedis())
+            , thread(&Producer::loop, this)
+		{
         }
 
         inline Producer(Producer&& o)
@@ -89,6 +102,7 @@ namespace {
             , slotName(std::move(o.slotName))
             , frequency(std::move(o.frequency))
             , msgSize(std::move(o.msgSize))
+            , redis(std::move(o.redis))
             , thread(std::move(o.thread)) {
         }
 
@@ -98,6 +112,7 @@ namespace {
             frequency = std::move(o.frequency);
             msgSize   = std::move(o.msgSize);
             thread    = std::move(o.thread);
+            redis     = std::move(o.redis);
             return *this;
         }
 
@@ -110,17 +125,22 @@ namespace {
         }
 
         inline void loop() {
-            while (_clientDomain == nullptr) usleep(1'000);
             int64_t sleepTime = 1'000'000 / frequency - 1;
-
-            auto& clientSlot  = _clientDomain->getSlot(slotName.c_str());
 
             while (!_doStop) {
                 usleep(sleepTime);
 
                 auto msg             = allocMessage(msgSize);
                 int64_t startOfWrite = getMicros();
-                clientSlot.write({ msg.data(), msg.size() });
+
+                // clientSlot.write({ msg.data(), msg.size() });
+				using Attrs = std::vector<std::pair<std::string, std::string>>;
+				Attrs attrs { {"msg", std::move(msg)} };
+
+				// SPDLOG_INFO("xadd to '{}' len {}", slotName, attrs[0].second.size());
+				redis.xadd(slotName, "*", attrs.begin(), attrs.end());
+				redis.xtrim(slotName, 1); // TODO: Pipeline
+
                 sum.writeLatency += getDuration(startOfWrite);
                 sum.n++;
             }
@@ -131,10 +151,11 @@ namespace {
         std::string name;
         std::vector<std::string> slotNames;
         int sleepTime;
+		Redis redis;
         std::thread thread;
 
         struct {
-            int64_t viewLatency = 0;
+            // int64_t viewLatency = 0;
             int64_t copyLatency = 0;
             int64_t n           = 0;
         } sum;
@@ -143,14 +164,18 @@ namespace {
             : name(name)
             , slotNames(slotNames)
             , sleepTime(sleepTime)
-            , thread(&Consumer::loop, this) {
+			, redis(getRedis())
+            , thread(&Consumer::loop, this)
+		{
         }
 
         inline Consumer(Consumer&& o)
             : name(std::move(o.name))
             , slotNames(std::move(o.slotNames))
             , sleepTime(std::move(o.sleepTime))
-            , thread(std::move(o.thread)) {
+            , redis(std::move(o.redis))
+            , thread(std::move(o.thread))
+		{
         }
 
         inline ~Consumer() {
@@ -158,45 +183,69 @@ namespace {
             thread.join();
             // SPDLOG_TRACE("Consumer '{}' dtor, waiting for join ... done", name);
 
-            SPDLOG_INFO("Consumer '{:>40}' avg latency of view        : {} (n {:>12L})", name,
-                        fmtDuration(static_cast<double>(sum.viewLatency) / sum.n), sum.n);
+            // SPDLOG_INFO("Consumer '{:>40}' avg latency of view        : {} (n {:>12L})", name, fmtDuration(static_cast<double>(sum.viewLatency) / sum.n), sum.n);
             SPDLOG_INFO("Consumer '{:>40}' avg latency of view + copy : {} (n {:>12L})", name,
                         fmtDuration(static_cast<double>(sum.copyLatency) / sum.n), sum.n);
         }
 
         inline void loop() {
-            std::vector<babus::ClientSlot*> slots;
+			using Attrs = std::vector<std::pair<std::string, std::string>>;
+			using Item = std::pair<std::string, Optional<Attrs>>;
+			using ItemStream = std::vector<Item>;
 
-            for (const auto& slotName : slotNames) {
-                slots.push_back(&_clientDomain->getSlot(slotName.c_str()));
-                assert(slots.back() != nullptr);
-                assert(slots.back()->ptr() != nullptr);
-            }
+			// std::unordered_map<std::string, std::string> keys = { {"key", id}, {"another-key", "0-0"} };
 
-            babus::Waiter waiter(_clientDomain->ptr());
-            for (auto& slotPtr : slots) {
-                assert(slotPtr != nullptr);
-                assert(slotPtr->ptr() != nullptr);
-                waiter.subscribeTo(slotPtr->ptr());
-            }
+			std::vector<std::pair<std::string, std::string>> keysAndIds;
+			auto lookupKeyRef = [&](const std::string& k) -> std::pair<std::string,std::string>& {
+				for (auto &kv : keysAndIds) {
+					if (k == kv.first) return kv;
+				}
+				throw std::runtime_error("invalid key");
+			};
+
+			for (const auto& slotName : slotNames) {
+				keysAndIds.push_back({slotName, "0-0"});
+				// SPDLOG_INFO("consumer '{}' listening to key '{}'", name, slotName);
+			}
+
 
             while (!_doStop) {
 
-                waiter.waitExclusive();
-                waiter.forEachNewSlot([&](babus::LockedView&& view) {
-                    sum.viewLatency += getElapsedFromMessageCreation((const uint8_t*)view.span.ptr);
-                    auto msg = view.cloneBytes();
-                    sum.copyLatency += getElapsedFromMessageCreation((const uint8_t*)msg.data());
-                    sum.n++;
-                });
+				std::vector<std::pair<std::string, ItemStream>> results;
+				// SPDLOG_INFO("consumer '{}' xread");
+				redis.xread(keysAndIds.begin(), keysAndIds.end(), std::chrono::seconds(10), 1, std::inserter(results, results.end()));
+				// SPDLOG_INFO("consumer '{}' xread... done", name);
 
-                /*
-                // Without a sleep or sched_yield, the loop can spin and never check _doStop / never exit.
-                if (sleepTime > 0) usleep(sleepTime);
-                else sched_yield();
-                */
-            }
-        }
+				for (auto& result : results) {
+					const std::string& key = result.first;
+					for (auto& msg : result.second) {
+						const std::string& id = msg.first;
+						const std::string& field = (msg.second)->operator[](0).first;
+						const std::string& value = (msg.second)->operator[](0).second;
+
+						// SPDLOG_INFO("field: {}",field);
+						// SPDLOG_INFO("value: {}",*reinterpret_cast<const uint64_t*>(value.data()));
+
+						// sum.viewLatency += getElapsedFromMessageCreation((const uint8_t*)view.span.ptr);
+						sum.copyLatency += getElapsedFromMessageCreation((const uint8_t*)value.data());
+						sum.n++;
+
+						// SPDLOG_INFO("set key '{}' id from '{}' to '{}' duration {}", key, lookupKeyRef(key).second, id, getElapsedFromMessageCreation((const uint8_t*)value.data()));
+						lookupKeyRef(key).second = id;
+					}
+				}
+
+				/*
+				fmt::print(" - result.size() = {}\n", result.size());
+				// Yikes.
+				fmt::print(" - dequed from strm1: (key={}) (nmsg={}) (id={}) (field0={} value0={})\n", result[0].first, result[0].second.size(), result[0].second[0].first,
+						result[0].second[0].second->operator[](0).first,
+						result[0].second[0].second->operator[](0).second);
+
+				*/
+				}
+
+			}
     };
 
     struct App {
@@ -245,37 +294,105 @@ namespace {
             stop[10]  = (uint8_t)'o';
             stop[11]  = (uint8_t)'p';
             SPDLOG_INFO("writing stop message.");
-            _clientDomain->getSlot("control")->write(_clientDomain->ptr(), babus::ByteSpan { stop.data(), stop.size() });
+            // _clientDomain->getSlot("control")->write(_clientDomain->ptr(), babus::ByteSpan { stop.data(), stop.size() });
         }
     };
 
-}
-
-static constexpr int64_t testDuration = 30'000'000;
-
-using namespace babus;
-
-template <class... Args> void run_app(Args&&... args) {
-    _doStop       = false;
-    _clientDomain = new ClientDomain(ClientDomain::openOrCreate("profileAppDomain"));
-
-    {
-        App app(args...);
-        app.run(testDuration);
-    }
-
-    delete _clientDomain;
-    _clientDomain = 0;
-}
 
 int main() {
+	auto redis = Redis("tcp://127.0.0.1:6379");
 
+#if 0
+	redis.set("key", "val1");
+    auto val = redis.get("key");
+
+	fmt::print("val: {}\n", *val);
+
+	int64_t t0 = getMicros();
+	// int64_t t0 = 'a';
+	fmt::print("t0: {}\n", t0);
+	set(redis, "t", t0);
+	int64_t t1 = getCopy<int64_t>(redis, "t");
+	int64_t t2 = getMicros();
+	fmt::print("t1: {}\n", t1);
+	fmt::print("latency: {}us\n", t2-t1);
+
+	{
+		AppMessage<SmallData> am (SmallData{"hello"});
+		fmt::print("smalldata latency0: {}us\n", am.nowDt());
+		set(redis, "hello", am);
+		auto am2 = getCopy<decltype(am)>(redis, "hello");
+		fmt::print("smalldata latency1: {}us\n", am2.nowDt());
+	}
+
+	//
+	// I see about 100-200 micros for the memcpy, and about 3.2 ms for the redis set/get.
+	//
+
+	std::mutex mtx;
+	for (int i=0; i<10; i++)
+	{
+		AppMessage<LargeData> am (LargeData{});
+		memset((void*)am.inner.text, 0, sizeof(LargeData));
+		sched_yield();
+		usleep(1);
+		sched_yield();
+		mtx.lock();
+		AppMessage<LargeData> am2 (LargeData{});
+		for (int j=0; j<1; j++) {
+			memcpy(&am2, &am, sizeof(decltype(am)));
+			((volatile char*)am2.inner.text)[0] = 0;
+		}
+		mtx.unlock();
+		fmt::print("largedata lock+memcpy latency1: {}us\n", am2.nowDt());
+	}
+
+	for (int i=0; i<10; i++)
+	{
+		AppMessage<LargeData> am (LargeData{});
+		// fmt::print("largedata latency0: {}us\n", am.nowDt());
+		set(redis, "hello2", am);
+		int64_t t1 = getMicros();
+		auto am2 = getCopy<decltype(am)>(redis, "hello2");
+		fmt::print("largedata latency1: {}us, {}us readonly\n", am2.nowDt(), getMicros()-t1);
+	}
+
+
+	{
+		using Attrs = std::vector<std::pair<std::string, std::string>>;
+		Attrs attrs = { {"f1", "v1"}, {"f2", "v2"} };
+		auto id = redis.xadd("strm1", "*", attrs.begin(), attrs.end());
+		fmt::print(" - xadd id = {}\n", id);
+
+		using Item = std::pair<std::string, Optional<Attrs>>;
+		using ItemStream = std::vector<Item>;
+
+		// std::unordered_map<std::string, ItemStream> result;
+		std::vector<std::pair<std::string, ItemStream>> result;
+		redis.xread("strm1", "0", std::chrono::seconds(1), 1, std::inserter(result, result.end()));
+		fmt::print(" - result.size() = {}\n", result.size());
+		// Yikes.
+		fmt::print(" - dequed from strm1: (key={}) (nmsg={}) (id={}) (field0={} value0={})\n", result[0].first, result[0].second.size(), result[0].second[0].first,
+				result[0].second[0].second->operator[](0).first,
+				result[0].second[0].second->operator[](0).second);
+
+		// fmt::print(" - dequed from strm1: (key={}) (val={})\n", result[0].first);
+
+		//// std::unordered_map<std::string, std::string> keys = { {"strm1", id}, {"another-key", "0-0"} };
+		// std::vector<std::pair<std::string, std::string>> keys = { {"strm1", id}, {"another-key", "0-0"} };
+		// redis.xread(keys.begin(), keys.end(), 10, std::inserter(result, result.end()));
+	}
+#endif
     spdlog::set_level(spdlog::level::trace);
     // spdlog::set_level(spdlog::level::debug);
     // spdlog::set_level(spdlog::level::info);
 
-    run_app(false);
-    // run_app(true);
 
-    return 0;
+	static constexpr int64_t testDuration = 30'000'000;
+    App app(false);
+	app.run(testDuration);
+
+
+	return 0;
 }
+

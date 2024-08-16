@@ -13,12 +13,11 @@ namespace babus {
             }
         }
 
-		inline bool magicMatches(
-				const std::array<char,4>& a,
-				const std::array<char,4>& b) {
-			for (int i=0; i<4; i++) if (a[i] != b[i]) return false;
-			return true;
-		}
+        inline bool magicMatches(const std::array<char, 4>& a, const std::array<char, 4>& b) {
+            for (int i = 0; i < 4; i++)
+                if (a[i] != b[i]) return false;
+            return true;
+        }
 
     }
 
@@ -45,17 +44,16 @@ namespace babus {
         if (strcmp(ptr->name, name.c_str()) != 0) {
             SPDLOG_ERROR("failed Slot name check (slot name '{}' != expected '{}')", ptr->name, name.c_str());
             throw std::runtime_error("failed Slot name check");
-		}
+        }
 
         // SPDLOG_CRITICAL("ini mtx val : {}", ptr->mtx.load());
 
         return ClientSlot { std::move(mmap), dom };
     }
 
-
     ClientDomain ClientDomain::openOrCreate(const std::string& name, std::size_t size, void* targetAddr) {
         auto builder = MmapBuilder {};
-        Mmap mmap    = builder.path(std::string{ Prefix } + name).allowCreate().size(size).targetAddr(targetAddr).build();
+        Mmap mmap    = builder.path(std::string { Prefix } + name).allowCreate().size(size).targetAddr(targetAddr).build();
 
         assert(reinterpret_cast<std::size_t>(mmap.ptr()) % 8 == 0);
         auto ptr = reinterpret_cast<Domain*>(mmap.ptr());
@@ -97,9 +95,6 @@ namespace babus {
 
 }
 
-
-
-
 namespace fmt {
     static char format_char(uint8_t cc) {
         char c = cc;
@@ -108,7 +103,7 @@ namespace fmt {
         return '?';
     }
     using namespace babus;
-	fmt::appender formatter<ClientDomain>::format(const ClientDomain& a, format_context& ctx) {
+    fmt::appender formatter<ClientDomain>::format(const ClientDomain& a, format_context& ctx) {
         fmt::format_to(ctx.out(), "Domain {{\n");
 
         // FIXME: Not hygenic.
@@ -117,4 +112,3 @@ namespace fmt {
         return fmt::format_to(ctx.out(), "}}");
     }
 }
-

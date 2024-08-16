@@ -34,12 +34,12 @@ namespace babus {
         RwMutexReadLockGuard lck;
         Slot* slot = nullptr;
 
-		inline std::vector<uint8_t> cloneBytes() const {
-			std::vector<uint8_t> out;
-			out.resize(span.len);
-			memcpy(out.data(), span.ptr, span.len);
-			return out;
-		}
+        inline std::vector<uint8_t> cloneBytes() const {
+            std::vector<uint8_t> out;
+            out.resize(span.len);
+            memcpy(out.data(), span.ptr, span.len);
+            return out;
+        }
     };
 
     struct SlotFlags {
@@ -55,16 +55,16 @@ namespace babus {
         uint32_t index = 0; // Used for event futex mask.
         SequenceCounter seq;
 
-		// Using a ring-buffer is more complicated than I realized because it requires
-		// dynamic offsets from the mmap ptr. The offsets should remain aligned to 4096, but
-		// must be dynamic length because data is variable length.
-		// OR specify max data size and SIMPLY treat as static size. BECAUSE we align to page size (4096)
-		// I BELIEVE this does not waste ANY ram actually !?!?
-		// It should be built in sparse acccess for free, wasting only virtual address space (who cares).
-		//
-		// uint32_t ringSize = 1; // single-buffered, double-buffered, up to N-buffered
-		// std::array<uint32_t, SlotMaxRingLength> length = {0}; // current data length
-		uint32_t length = 0; // current data length
+        // Using a ring-buffer is more complicated than I realized because it requires
+        // dynamic offsets from the mmap ptr. The offsets should remain aligned to 4096, but
+        // must be dynamic length because data is variable length.
+        // OR specify max data size and SIMPLY treat as static size. BECAUSE we align to page size (4096)
+        // I BELIEVE this does not waste ANY ram actually !?!?
+        // It should be built in sparse acccess for free, wasting only virtual address space (who cares).
+        //
+        // uint32_t ringSize = 1; // single-buffered, double-buffered, up to N-buffered
+        // std::array<uint32_t, SlotMaxRingLength> length = {0}; // current data length
+        uint32_t length = 0; // current data length
 
         SlotFlags flags;
         char name[MaxNameLength] = { 0 };
@@ -84,8 +84,7 @@ namespace babus {
         inline LockedView read() {
             return LockedView {
                 ByteSpan { data_ptr(), length },
-                getReadLock(),
-				this
+                 getReadLock(), this
             };
         }
 
@@ -113,7 +112,7 @@ namespace babus {
             length = span.len;
             seq.incrementNoFutexWake();
         }
-        SPDLOG_TRACE("slot::write() wrote n={} to 0x{:0x}", span.len, (std::size_t)data_ptr());
+        SPDLOG_TRACE("Slot::write() wrote n={} to 0x{:0x}", span.len, (std::size_t)data_ptr());
         dom->seq.increment(1u << index);
     }
 

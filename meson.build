@@ -32,9 +32,10 @@ fs_dep = declare_dependency(dependencies: meson.get_compiler('cpp').find_library
 
 
 
+base_inc = include_directories('.', './babus', './subprojects/')
 base_dep = declare_dependency(
   dependencies: [spdlog_dep, fs_dep],
-  include_directories: include_directories('.', './babus')
+  include_directories: base_inc
   )
 
 
@@ -83,7 +84,6 @@ if get_option('tests').enabled()
       'babus/test/waiter.cc',
       ),
     dependencies: [babus_dep, gtest_main_dep])
-
 endif
 
 if get_option('benchmarks').enabled()
@@ -94,4 +94,8 @@ if get_option('benchmarks').enabled()
     files('babus/benchmark/profileApp.cc'),
     dependencies: [babus_dep],
     install: false)
+endif
+
+if get_option('profileRedis').enabled()
+  subdir('babus/app/redisProfile')
 endif

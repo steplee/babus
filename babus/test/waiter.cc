@@ -50,9 +50,8 @@ TEST(Waiter, WaiterWorksWithJustTwoThreads) {
 
 	t.join();
 
-	delete slot;
-	delete domain;
-
+	free(slot);
+	free(domain);
 }
 
 	

@@ -9,19 +9,21 @@ namespace babus {
     struct ClientSlot {
     private:
         Mmap mmap_;
-		Domain *domain_;
+        Domain* domain_;
 
         inline ClientSlot(Mmap&& mmap, Domain* dom)
-            : mmap_(std::move(mmap)), domain_(dom) {
+            : mmap_(std::move(mmap))
+            , domain_(dom) {
         }
 
     public:
         inline ClientSlot(ClientSlot&& o)
-            : mmap_(std::move(o.mmap_)), domain_(std::move(o.domain_)) {
+            : mmap_(std::move(o.mmap_))
+            , domain_(std::move(o.domain_)) {
         }
         inline ClientSlot& operator=(ClientSlot&& o) {
-            mmap_ = std::move(o.mmap_);
-			domain_ = std::move(o.domain_);
+            mmap_   = std::move(o.mmap_);
+            domain_ = std::move(o.domain_);
             return *this;
         }
 
@@ -29,13 +31,12 @@ namespace babus {
         inline ~ClientSlot() {
         }
 
-		inline operator Slot&() {
-			return *ptr();
-		}
+        inline operator Slot&() {
+            return *ptr();
+        }
         inline Slot* ptr() const {
             return reinterpret_cast<Slot*>(mmap_.ptr());
         }
-
 
         inline uint8_t* data_ptr() const {
             return ptr()->data_ptr();
@@ -50,11 +51,11 @@ namespace babus {
             return ptr()->getReadLock();
         }
         inline LockedView read() const {
-			return ptr()->read();
+            return ptr()->read();
         }
         inline void write(ByteSpan span) {
-			return ptr()->write(domain_, span);
-		}
+            return ptr()->write(domain_, span);
+        }
     };
 
     struct ClientDomain {
@@ -65,19 +66,19 @@ namespace babus {
         // shared between different processes.
         std::mutex processPrivateMtx_;
 
-		// Must use a unique_ptr here so that `getSlot` references remain valid after re-hashing etc.
+        // Must use a unique_ptr here so that `getSlot` references remain valid after re-hashing etc.
         SmallMap<const char*, std::unique_ptr<ClientSlot>> slots_;
 
         inline ClientDomain(Mmap&& mmap)
             : mmap_(std::move(mmap)) {
         }
 
-		inline ClientDomain(ClientDomain&& o)
-			: mmap_(std::move(o.mmap_))
-			  , slots_(std::move(o.slots_))
-			  // , processPrivateMtx(std::move(o.processPrivateMtx))
-		{
-		}
+        inline ClientDomain(ClientDomain&& o)
+            : mmap_(std::move(o.mmap_))
+            , slots_(std::move(o.slots_))
+        // , processPrivateMtx(std::move(o.processPrivateMtx))
+        {
+        }
 
     public:
         static ClientDomain openOrCreate(const std::string& path, std::size_t size = DomainFileSize, void* targetAddr = 0);
@@ -94,7 +95,6 @@ namespace babus {
 
 namespace fmt {
     template <> struct formatter<babus::ClientDomain> : formatter<std::string> {
-		fmt::appender format(const babus::ClientDomain& t, format_context& ctx);
+        fmt::appender format(const babus::ClientDomain& t, format_context& ctx);
     };
 }
-

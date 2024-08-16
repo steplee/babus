@@ -2,14 +2,8 @@
 
 namespace babus {
 
-    namespace {
-
-
-    }
+    namespace { }
 }
-
-
-
 
 namespace fmt {
     static char format_char(uint8_t cc) {
@@ -19,7 +13,7 @@ namespace fmt {
         return '?';
     }
     using namespace babus;
-	fmt::appender formatter<Slot>::format(const Slot& a, format_context& ctx) {
+    fmt::appender formatter<Slot>::format(const Slot& a, format_context& ctx) {
         fmt::format_to(ctx.out(), "   Slot {{\n");
         fmt::format_to(ctx.out(), "       name: '{}'\n", a.name);
         fmt::format_to(ctx.out(), "       seq : '{}'\n", a.seq.load());

@@ -1,0 +1,10 @@
+[wrap-git]
+url = https://github.com/redis/hiredis
+revision = v1.2.0
+depth = 1
+
+[provide]
+; dependency_names = frast_dep, frastgl_dep
+; frast_dep=frast_dep
+; frastgl_dep=frastgl_dep
+; glfw_dep=glfw_dep
