@@ -22,7 +22,15 @@ namespace {
 		int imuRate;
 
 		int64_t testDuration;
+
+		std::string title;
 	};
+
+	inline std::string getString(const char* key, const std::string& def="noTitle") {
+		const char* val = getenv(key);
+		if (val == nullptr) return def;
+		return std::string{val};
+	}
 
 	inline bool getOn(const char* key, bool def=false) {
 		const char* val = getenv(key);
@@ -40,6 +48,7 @@ namespace {
 
 	inline ProfileConfig getConfig() {
 		ProfileConfig c;
+		c.title = getString("title", "noTitle");
 
 		c.redis.useTcp = getOn("redisUseTcp");
 

@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "babus/benchmark/profileCfg.hpp"
+#include "babus/detail/csv_writer.hpp"
 
 using namespace sw::redis;
 
@@ -14,6 +15,7 @@ using namespace sw::redis;
 
 namespace {
 	ProfileConfig g_cfg;
+	std::unique_ptr<CsvWriter> g_csv;
 
     volatile bool _doStop              = false;
 
@@ -127,6 +129,12 @@ namespace {
             // SPDLOG_TRACE("Producer '{}' dtor, waiting for join ... done", name);
             SPDLOG_INFO("Producer '{:>40}' avg latency of write       : {} (n {:>12L})", name,
                         fmtDuration(static_cast<double>(sum.writeLatency) / sum.n), sum.n);
+			auto lck = g_csv->lock();
+			g_csv->set("name", std::string(name));
+			g_csv->set("type", "producer");
+			g_csv->set("totalTime", fmt::format("{:.8f}", sum.writeLatency * 1e-6));
+			g_csv->set("n", fmt::format("{}", sum.n));
+			g_csv->finishRow();
         }
 
         inline void loop() {
@@ -193,6 +201,12 @@ namespace {
             // SPDLOG_INFO("Consumer '{:>40}' avg latency of view        : {} (n {:>12L})", name, fmtDuration(static_cast<double>(sum.viewLatency) / sum.n), sum.n);
             SPDLOG_INFO("Consumer '{:>40}' avg latency of view + copy : {} (n {:>12L})", name,
                         fmtDuration(static_cast<double>(sum.copyLatency) / sum.n), sum.n);
+			auto lck = g_csv->lock();
+			g_csv->set("name", std::string(name));
+			g_csv->set("type", "consumer");
+			g_csv->set("totalTime", fmt::format("{:.8f}", sum.copyLatency * 1e-6));
+			g_csv->set("n", fmt::format("{}", sum.n));
+			g_csv->finishRow();
         }
 
         inline void loop() {
@@ -263,32 +277,32 @@ namespace {
 
         inline App(bool noImuNorMed345) {
             // SPDLOG_INFO("Running with `noImuNorMed345`={}", noImuNorMed345);
-            if (!noImuNorMed345) producers.push_back(std::make_unique<Producer>("imu =>", "imu", g_cfg.imuRate, 128));
-            producers.push_back(std::make_unique<Producer>("image =>", "image", 30, g_cfg.imageSize));
+            if (!noImuNorMed345) producers.push_back(std::make_unique<Producer>("imu", "imu", g_cfg.imuRate, 128));
+            producers.push_back(std::make_unique<Producer>("image", "image", 30, g_cfg.imageSize));
 
-            producers.push_back(std::make_unique<Producer>("med01 =>", "med01", 40, 356));
-            producers.push_back(std::make_unique<Producer>("med02 =>", "med02", 41, 356));
+            producers.push_back(std::make_unique<Producer>("med01", "med01", 40, 356));
+            producers.push_back(std::make_unique<Producer>("med02", "med02", 41, 356));
             if (!noImuNorMed345) {
-                producers.push_back(std::make_unique<Producer>("med03 =>", "med03", 42, 356));
-                producers.push_back(std::make_unique<Producer>("med04 =>", "med04", 43, 356));
-                producers.push_back(std::make_unique<Producer>("med05 =>", "med05", 44, 356));
+                producers.push_back(std::make_unique<Producer>("med03", "med03", 42, 356));
+                producers.push_back(std::make_unique<Producer>("med04", "med04", 43, 356));
+                producers.push_back(std::make_unique<Producer>("med05", "med05", 44, 356));
             }
 
             usleep(5);
 
-            consumers.push_back(std::make_unique<Consumer>("=> imu", std::vector<std::string> {
+            consumers.push_back(std::make_unique<Consumer>("imu", std::vector<std::string> {
                                                                          "control",
                                                                          "imu",
                                                                      }));
-            consumers.push_back(std::make_unique<Consumer>("=> image", std::vector<std::string> { "control", "image" }));
-            consumers.push_back(std::make_unique<Consumer>("=> image+med01", std::vector<std::string> { "control", "image", "med01" }));
+            consumers.push_back(std::make_unique<Consumer>("image", std::vector<std::string> { "control", "image" }));
+            consumers.push_back(std::make_unique<Consumer>("image+med01", std::vector<std::string> { "control", "image", "med01" }));
             consumers.push_back(std::make_unique<Consumer>(
-                "=> image+med0[1-5]", std::vector<std::string> { "control", "image", "med01", "med02", "med03", "med04", "med05" }));
+                "image+med0[1-5]", std::vector<std::string> { "control", "image", "med01", "med02", "med03", "med04", "med05" }));
             consumers.push_back(
-                std::make_unique<Consumer>("=> imu+image+med0[1-5]", std::vector<std::string> { "control", "imu", "image", "med01",
+                std::make_unique<Consumer>("imu+image+med0[1-5]", std::vector<std::string> { "control", "imu", "image", "med01",
                                                                                                 "med02", "med03", "med04", "med05" }));
             consumers.push_back(std::make_unique<Consumer>(
-                "=> imu+image+med0[1-5] & sleep(10ms)",
+                "imu+image+med0[1-5] & sleep(10ms)",
                 std::vector<std::string> { "control", "imu", "image", "med01", "med02", "med03", "med04", "med05" }, 10000));
         }
 
@@ -313,9 +327,12 @@ int main() {
     // spdlog::set_level(spdlog::level::debug);
     // spdlog::set_level(spdlog::level::info);
 
+
 	g_cfg = getConfig();
 	assert(g_cfg.valid);
 	SPDLOG_INFO("redis using tcp: {}", g_cfg.redis.useTcp);
+
+	g_csv = std::make_unique<CsvWriter>(g_cfg.title + std::string{".csv"}, std::vector<std::string>{"name", "type", "n", "totalTime", "viewTime"});
 
 	static constexpr int64_t testDuration = 30'000'000;
     App app(false);

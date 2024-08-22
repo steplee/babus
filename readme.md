@@ -113,8 +113,6 @@ Babus
 [2024-08-16 09:21:24.488] [info] [profileCfg.hpp:48] imageSize: 6220800
 [2024-08-16 09:21:24.488] [info] [profileCfg.hpp:49] imuRate: 1000
 [2024-08-16 09:21:24.488] [info] [profileCfg.hpp:52] testDuration: 30000000
-[2024-08-16 09:21:24.488] [info] [profileBabus.cc:209] 
-[2024-08-16 09:21:24.488] [info] [profileBabus.cc:210] Running with `noImuNorMed345`=false
 [2024-08-16 09:21:54.489] [info] [profileBabus.cc:163] Consumer '                                  => imu' avg latency of view        :  12.1us (n        28279)
 [2024-08-16 09:21:54.489] [info] [profileBabus.cc:165] Consumer '                                  => imu' avg latency of view + copy :  12.4us (n        28279)
 [2024-08-16 09:21:54.491] [info] [profileBabus.cc:163] Consumer '                                => image' avg latency of view        : 559.4us (n          814)
@@ -136,75 +134,73 @@ Babus
 [2024-08-16 09:21:54.524] [info] [profileBabus.cc:110] Producer '                                med05 =>' avg latency of write       :   4.9us (n         1316)
 ```
 ## With All Small Messages
-When the image size is reduced from 1920*1080*3 to just 1080, the difference in read latency narrows, but the write latency stays high with redis:
+When the image size is reduced from `1920*1080*3` to just `1080`, the difference in read latency narrows, but the write latency stays high with redis:
 ```
 *******************************************************************************************
 Redis (TCP)
 *******************************************************************************************
-[2024-08-16 09:30:16.318] [info] [profileCfg.hpp:48] imageSize: 1080
-[2024-08-16 09:30:16.318] [info] [profileCfg.hpp:49] imuRate: 1000
-[2024-08-16 09:30:16.318] [info] [profileCfg.hpp:52] testDuration: 30000000
-[2024-08-16 09:30:16.318] [info] [main.cc:318] redis using tcp: true
-[2024-08-16 09:30:46.320] [info] [main.cc:194] Consumer '                                  => imu' avg latency of view + copy :  63.8us (n        25984)
-[2024-08-16 09:30:46.328] [info] [main.cc:194] Consumer '                                => image' avg latency of view + copy : 142.6us (n          894)
-[2024-08-16 09:30:46.328] [info] [main.cc:194] Consumer '                          => image+med01' avg latency of view + copy : 119.6us (n         2083)
-[2024-08-16 09:30:46.328] [info] [main.cc:194] Consumer '                      => image+med0[1-5]' avg latency of view + copy : 103.6us (n         7136)
-[2024-08-16 09:30:46.328] [info] [main.cc:194] Consumer '                  => imu+image+med0[1-5]' avg latency of view + copy :  65.6us (n        33119)
-[2024-08-16 09:30:46.328] [info] [main.cc:194] Consumer '    => imu+image+med0[1-5] & sleep(10ms)' avg latency of view + copy :  65.4us (n        33119)
-[2024-08-16 09:30:46.328] [info] [main.cc:128] Producer '                                  imu =>' avg latency of write       :  98.7us (n        25984)
-[2024-08-16 09:30:46.328] [info] [main.cc:128] Producer '                                image =>' avg latency of write       : 169.7us (n          894)
-[2024-08-16 09:30:46.328] [info] [main.cc:128] Producer '                                med01 =>' avg latency of write       : 150.0us (n         1190)
-[2024-08-16 09:30:46.338] [info] [main.cc:128] Producer '                                med02 =>' avg latency of write       : 144.7us (n         1220)
-[2024-08-16 09:30:46.338] [info] [main.cc:128] Producer '                                med03 =>' avg latency of write       : 131.5us (n         1250)
-[2024-08-16 09:30:46.338] [info] [main.cc:128] Producer '                                med04 =>' avg latency of write       : 142.1us (n         1279)
-[2024-08-16 09:30:46.338] [info] [main.cc:128] Producer '                                med05 =>' avg latency of write       : 150.2us (n         1308)
+[2024-08-20 18:44:19.476] [info] [profileCfg.hpp:57] imageSize: 6220800
+[2024-08-20 18:44:19.476] [info] [profileCfg.hpp:58] imuRate: 1000
+[2024-08-20 18:44:19.476] [info] [profileCfg.hpp:61] testDuration: 30000000
+[2024-08-20 18:44:19.476] [info] [main.cc:333] redis using tcp: true
+[2024-08-20 18:44:49.477] [info] [main.cc:202] Consumer '                                     imu' avg latency of view + copy : 507.8us (n        18681)
+[2024-08-20 18:44:49.483] [info] [main.cc:202] Consumer '                                   image' avg latency of view + copy :  35.9ms (n          441)
+[2024-08-20 18:44:49.484] [info] [main.cc:202] Consumer '                             image+med01' avg latency of view + copy :  14.1ms (n         1462)
+[2024-08-20 18:44:49.484] [info] [main.cc:202] Consumer '                         image+med0[1-5]' avg latency of view + copy :   7.1ms (n         5887)
+[2024-08-20 18:44:49.484] [info] [main.cc:202] Consumer '                     imu+image+med0[1-5]' avg latency of view + copy :   2.0ms (n        24518)
+[2024-08-20 18:44:49.485] [info] [main.cc:202] Consumer '       imu+image+med0[1-5] & sleep(10ms)' avg latency of view + copy :   2.0ms (n        24538)
+[2024-08-20 18:44:49.485] [info] [main.cc:130] Producer '                                     imu' avg latency of write       : 550.6us (n        18681)
+[2024-08-20 18:44:49.485] [info] [main.cc:130] Producer '                                   image' avg latency of write       :  29.5ms (n          441)
+[2024-08-20 18:44:49.485] [info] [main.cc:130] Producer '                                   med01' avg latency of write       :   4.3ms (n         1022)
+[2024-08-20 18:44:49.485] [info] [main.cc:130] Producer '                                   med02' avg latency of write       :   3.9ms (n         1056)
+[2024-08-20 18:44:49.485] [info] [main.cc:130] Producer '                                   med03' avg latency of write       :   3.6ms (n         1093)
+[2024-08-20 18:44:49.485] [info] [main.cc:130] Producer '                                   med04' avg latency of write       :   3.2ms (n         1129)
+[2024-08-20 18:44:49.485] [info] [main.cc:130] Producer '                                   med05' avg latency of write       :   3.3ms (n         1151)
 
 *******************************************************************************************
 Redis (Unix Domain Sockets)
 *******************************************************************************************
-[2024-08-16 09:30:46.339] [info] [profileCfg.hpp:48] imageSize: 1080
-[2024-08-16 09:30:46.339] [info] [profileCfg.hpp:49] imuRate: 1000
-[2024-08-16 09:30:46.339] [info] [profileCfg.hpp:52] testDuration: 30000000
-[2024-08-16 09:30:46.339] [info] [main.cc:318] redis using tcp: false
-[2024-08-16 09:31:16.340] [info] [main.cc:194] Consumer '                                  => imu' avg latency of view + copy :  50.3us (n        26410)
-[2024-08-16 09:31:16.356] [info] [main.cc:194] Consumer '                                => image' avg latency of view + copy : 115.2us (n          895)
-[2024-08-16 09:31:16.356] [info] [main.cc:194] Consumer '                          => image+med01' avg latency of view + copy :  92.2us (n         2085)
-[2024-08-16 09:31:16.356] [info] [main.cc:194] Consumer '                      => image+med0[1-5]' avg latency of view + copy :  72.8us (n         7143)
-[2024-08-16 09:31:16.356] [info] [main.cc:194] Consumer '                  => imu+image+med0[1-5]' avg latency of view + copy :  51.2us (n        33552)
-[2024-08-16 09:31:16.356] [info] [main.cc:194] Consumer '    => imu+image+med0[1-5] & sleep(10ms)' avg latency of view + copy :  51.8us (n        33552)
-[2024-08-16 09:31:16.356] [info] [main.cc:128] Producer '                                  imu =>' avg latency of write       :  79.9us (n        26410)
-[2024-08-16 09:31:16.356] [info] [main.cc:128] Producer '                                image =>' avg latency of write       : 135.7us (n          895)
-[2024-08-16 09:31:16.356] [info] [main.cc:128] Producer '                                med01 =>' avg latency of write       : 125.7us (n         1191)
-[2024-08-16 09:31:16.356] [info] [main.cc:128] Producer '                                med02 =>' avg latency of write       : 114.3us (n         1221)
-[2024-08-16 09:31:16.359] [info] [main.cc:128] Producer '                                med03 =>' avg latency of write       : 115.8us (n         1251)
-[2024-08-16 09:31:16.359] [info] [main.cc:128] Producer '                                med04 =>' avg latency of write       : 115.0us (n         1280)
-[2024-08-16 09:31:16.359] [info] [main.cc:128] Producer '                                med05 =>' avg latency of write       : 115.9us (n         1310)
+[2024-08-20 18:44:49.487] [info] [profileCfg.hpp:57] imageSize: 6220800
+[2024-08-20 18:44:49.487] [info] [profileCfg.hpp:58] imuRate: 1000
+[2024-08-20 18:44:49.487] [info] [profileCfg.hpp:61] testDuration: 30000000
+[2024-08-20 18:44:49.487] [info] [main.cc:333] redis using tcp: false
+[2024-08-20 18:45:19.487] [info] [main.cc:202] Consumer '                                     imu' avg latency of view + copy : 419.8us (n        19048)
+[2024-08-20 18:45:19.518] [info] [main.cc:202] Consumer '                                   image' avg latency of view + copy :  32.6ms (n          543)
+[2024-08-20 18:45:19.518] [info] [main.cc:202] Consumer '                             image+med01' avg latency of view + copy :  15.9ms (n         1646)
+[2024-08-20 18:45:19.518] [info] [main.cc:202] Consumer '                         image+med0[1-5]' avg latency of view + copy :  10.7ms (n         6163)
+[2024-08-20 18:45:19.518] [info] [main.cc:202] Consumer '                     imu+image+med0[1-5]' avg latency of view + copy :   3.5ms (n        24749)
+[2024-08-20 18:45:19.518] [info] [main.cc:202] Consumer '       imu+image+med0[1-5] & sleep(10ms)' avg latency of view + copy :   3.5ms (n        24822)
+[2024-08-20 18:45:19.518] [info] [main.cc:130] Producer '                                     imu' avg latency of write       : 521.2us (n        19048)
+[2024-08-20 18:45:19.518] [info] [main.cc:130] Producer '                                   image' avg latency of write       :  19.2ms (n          543)
+[2024-08-20 18:45:19.518] [info] [main.cc:130] Producer '                                   med01' avg latency of write       :   2.1ms (n         1104)
+[2024-08-20 18:45:19.518] [info] [main.cc:130] Producer '                                   med02' avg latency of write       :   2.5ms (n         1115)
+[2024-08-20 18:45:19.518] [info] [main.cc:130] Producer '                                   med03' avg latency of write       :   2.8ms (n         1123)
+[2024-08-20 18:45:19.518] [info] [main.cc:130] Producer '                                   med04' avg latency of write       :   3.1ms (n         1137)
+[2024-08-20 18:45:19.518] [info] [main.cc:130] Producer '                                   med05' avg latency of write       :   3.4ms (n         1146)
 
 *******************************************************************************************
 Babus
 *******************************************************************************************
-[2024-08-16 09:31:16.382] [info] [profileCfg.hpp:48] imageSize: 1080
-[2024-08-16 09:31:16.382] [info] [profileCfg.hpp:49] imuRate: 1000
-[2024-08-16 09:31:16.382] [info] [profileCfg.hpp:52] testDuration: 30000000
-[2024-08-16 09:31:16.382] [info] [profileBabus.cc:209] 
-[2024-08-16 09:31:16.382] [info] [profileBabus.cc:210] Running with `noImuNorMed345`=false
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:163] Consumer '                                  => imu' avg latency of view        :  11.1us (n        28274)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:165] Consumer '                                  => imu' avg latency of view + copy :  11.3us (n        28274)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:163] Consumer '                                => image' avg latency of view        :  13.2us (n          898)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:165] Consumer '                                => image' avg latency of view + copy :  14.2us (n          898)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:163] Consumer '                          => image+med01' avg latency of view        :  17.5us (n         2094)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:165] Consumer '                          => image+med01' avg latency of view + copy :  18.3us (n         2094)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:163] Consumer '                      => image+med0[1-5]' avg latency of view        :  14.2us (n         7176)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:165] Consumer '                      => image+med0[1-5]' avg latency of view + copy :  14.7us (n         7176)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:163] Consumer '                  => imu+image+med0[1-5]' avg latency of view        :  11.7us (n        35453)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:165] Consumer '                  => imu+image+med0[1-5]' avg latency of view + copy :  12.0us (n        35453)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:163] Consumer '    => imu+image+med0[1-5] & sleep(10ms)' avg latency of view        :  11.8us (n        35448)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:165] Consumer '    => imu+image+med0[1-5] & sleep(10ms)' avg latency of view + copy :  12.1us (n        35448)
-[2024-08-16 09:31:46.383] [info] [profileBabus.cc:110] Producer '                                  imu =>' avg latency of write       :   4.5us (n        28282)
-[2024-08-16 09:31:46.384] [info] [profileBabus.cc:110] Producer '                                image =>' avg latency of write       :   5.9us (n          898)
-[2024-08-16 09:31:46.388] [info] [profileBabus.cc:110] Producer '                                med01 =>' avg latency of write       :   5.5us (n         1197)
-[2024-08-16 09:31:46.400] [info] [profileBabus.cc:110] Producer '                                med02 =>' avg latency of write       :   5.9us (n         1227)
-[2024-08-16 09:31:46.400] [info] [profileBabus.cc:110] Producer '                                med03 =>' avg latency of write       :   6.5us (n         1256)
-[2024-08-16 09:31:46.400] [info] [profileBabus.cc:110] Producer '                                med04 =>' avg latency of write       :   6.0us (n         1286)
-[2024-08-16 09:31:46.400] [info] [profileBabus.cc:110] Producer '                                med05 =>' avg latency of write       :   5.0us (n         1317)
+[2024-08-20 18:45:19.521] [info] [profileCfg.hpp:57] imageSize: 6220800
+[2024-08-20 18:45:19.521] [info] [profileCfg.hpp:58] imuRate: 1000
+[2024-08-20 18:45:19.521] [info] [profileCfg.hpp:61] testDuration: 30000000
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:171] Consumer '                                     imu' avg latency of view        :  17.4us (n        28181)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:173] Consumer '                                     imu' avg latency of view + copy :  17.8us (n        28181)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:171] Consumer '                                   image' avg latency of view        : 727.1us (n          779)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:173] Consumer '                                   image' avg latency of view + copy :   3.8ms (n          779)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:171] Consumer '                             image+med01' avg latency of view        : 379.7us (n         1975)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:173] Consumer '                             image+med01' avg latency of view + copy :   1.6ms (n         1975)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:171] Consumer '                         image+med0[1-5]' avg latency of view        : 204.6us (n         7056)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:173] Consumer '                         image+med0[1-5]' avg latency of view + copy : 533.6us (n         7056)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:171] Consumer '                     imu+image+med0[1-5]' avg latency of view        :  59.0us (n        33079)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:173] Consumer '                     imu+image+med0[1-5]' avg latency of view + copy : 130.7us (n        33079)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:171] Consumer '       imu+image+med0[1-5] & sleep(10ms)' avg latency of view        :  57.9us (n        33074)
+[2024-08-20 18:45:49.521] [info] [profileBabus.cc:173] Consumer '       imu+image+med0[1-5] & sleep(10ms)' avg latency of view + copy : 130.2us (n        33074)
+[2024-08-20 18:45:49.522] [info] [profileBabus.cc:112] Producer '                                     imu' avg latency of write       :   6.5us (n        28181)
+[2024-08-20 18:45:49.543] [info] [profileBabus.cc:112] Producer '                                   image' avg latency of write       : 723.6us (n          779)
+[2024-08-20 18:45:49.543] [info] [profileBabus.cc:112] Producer '                                   med01' avg latency of write       :   8.1us (n         1197)
+[2024-08-20 18:45:49.543] [info] [profileBabus.cc:112] Producer '                                   med02' avg latency of write       :   9.2us (n         1226)
+[2024-08-20 18:45:49.543] [info] [profileBabus.cc:112] Producer '                                   med03' avg latency of write       :   8.0us (n         1257)
+[2024-08-20 18:45:49.543] [info] [profileBabus.cc:112] Producer '                                   med04' avg latency of write       :   9.0us (n         1286)
+[2024-08-20 18:45:49.543] [info] [profileBabus.cc:112] Producer '                                   med05' avg latency of write       :   8.7us (n         1316)
 ```
