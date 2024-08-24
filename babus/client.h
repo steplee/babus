@@ -1,6 +1,8 @@
 #pragma once
 
-#include "domain.h"
+#include "babus/domain.h"
+#include "babus/slot/slot1.h"
+#include "babus/slot/slotPtr.h"
 
 #include <spdlog/spdlog.h>
 
@@ -31,30 +33,30 @@ namespace babus {
         inline ~ClientSlot() {
         }
 
-        inline operator Slot&() {
-            return *ptr();
+        inline operator SlotPtr() {
+            return ptr();
         }
-        inline Slot* ptr() const {
-            return reinterpret_cast<Slot*>(mmap_.ptr());
+        inline SlotPtr ptr() const {
+            return SlotPtr { reinterpret_cast<Slot*>(mmap_.ptr()) };
         }
 
         inline uint8_t* data_ptr() const {
-            return ptr()->data_ptr();
+            return ptr().data_ptr();
         }
-        inline Slot* operator->() const {
+        inline SlotPtr operator->() const {
             return ptr();
         }
         inline RwMutexWriteLockGuard getWriteLock() const {
-            return ptr()->getWriteLock();
+            return ptr().getWriteLock();
         }
         inline RwMutexReadLockGuard getReadLock() const {
-            return ptr()->getReadLock();
+            return ptr().getReadLock();
         }
         inline LockedView read() const {
-            return ptr()->read();
+            return ptr().read();
         }
         inline void write(ByteSpan span) {
-            return ptr()->write(domain_, span);
+            return ptr().write(domain_, span);
         }
     };
 
